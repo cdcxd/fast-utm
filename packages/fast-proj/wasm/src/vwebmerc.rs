@@ -93,7 +93,7 @@ pub fn inverse2(x: v128, y: v128) -> (v128, v128) {
     // As in the TS kernel: phi = gd(v), v = |y / R| = k ln 2 + r, as 2 atan(m / (m + 2)) with m = expm1(v) = 2^k (1 +
     // expm1(r)) - 1 below v = asinh(1) (phi = pi/4), else pi/2 - 2 atan(exp(-v)), exp(-v) = 2^-k (1 + expm1(-r)); both
     // atan arguments are within tan(pi/8). Clamped at v = 40, where phi rounds to pi/2.
-    let v = f64x2_pmin(f64x2_abs(f64x2_div(y, spl(R))), spl(40.0));
+    let v = f64x2_pmin(f64x2_abs(f64x2_mul(y, spl(1.0 / R))), spl(40.0));
     let k = f64x2_nearest(f64x2_mul(v, spl(LOG2E)));
     let r = f64x2_sub(f64x2_sub(v, f64x2_mul(k, spl(LN2_HI))), f64x2_mul(k, spl(LN2_LO)));
     let near = f64x2_lt(v, spl(ASINH1));

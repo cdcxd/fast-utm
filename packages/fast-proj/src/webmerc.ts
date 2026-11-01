@@ -133,7 +133,7 @@ function sphericalMercator(): Projection {
     // (m + 2)) with m = expm1(v) = 2^k (1 + expm1(r)) - 1, an exact cancellation for k = 0; above, phi = pi/2 - 2
     // atan(exp(-v)) with exp(-v) = 2^-k (1 + expm1(-r)). Either atan argument is within tan(pi/8). Beyond v = 40, phi
     // rounds to pi/2.
-    let v = Math.abs(y / R);
+    let v = Math.abs(y * (1 / R));
     if (v > 40) v = 40;
     const k = Math.round(v * LOG2E);
     const r = v - k * LN2_HI - k * LN2_LO;
@@ -224,7 +224,7 @@ function inverseBatch(
         else if (lon < -180) lon += 360;
       }
       outA[j] = lon;
-      let v = Math.abs(y / 6378137);
+      let v = Math.abs(y * (1 / 6378137));
       if (v > 40) v = 40;
       const k = Math.round(v * Math.LOG2E);
       const r = v - k * 0.6931471803691238 - k * 1.9082149292705877e-10;
