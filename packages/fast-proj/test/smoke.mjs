@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { GCJ02, GRS80, WGS84, gcj02, tmerc, utm, utmFor, utmZoneFor } from 'fast-proj';
+import { BD09, GCJ02, GRS80, WGS84, gcj02, tmerc, utm, utmFor, utmZoneFor } from 'fast-proj';
 import { latLngs, lineString } from 'fast-proj/geojson';
 import { loadWasm } from 'fast-proj/wasm';
 
@@ -29,6 +29,8 @@ const amap = utm({ zone: 50, geographic: GCJ02 });
 const [al, ap] = amap.toLonLatPoint(...utm({ zone: 50 }).fromLonLatPoint(116.391, 39.907));
 const [el, ep] = GCJ02.fromWgs84Point(116.391, 39.907);
 assert.ok(Math.abs(al - el) < 1e-12 && Math.abs(ap - ep) < 1e-12);
+const [bl, bp] = BD09.toWgs84Point(...BD09.fromWgs84Point(116.391, 39.907));
+assert.ok(Math.abs(bl - 116.391) < 1e-10 && Math.abs(bp - 39.907) < 1e-10);
 
 const ctx = await loadWasm();
 assert.equal(ctx.backend, 'wasm');

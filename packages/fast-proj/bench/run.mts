@@ -10,7 +10,12 @@ declare global {
     | { version: string; Transpiler: new (options: { loader: 'ts' }) => { transformSync(code: string): string } }
     | undefined;
   interface Window {
-    gcoord: { readonly WGS84: unknown; readonly GCJ02: unknown; transform(...args: unknown[]): unknown };
+    gcoord: {
+      readonly WGS84: unknown;
+      readonly GCJ02: unknown;
+      readonly BD09: unknown;
+      transform(...args: unknown[]): unknown;
+    };
   }
 }
 
@@ -22,10 +27,10 @@ const n = 10000;
 async function inProcess() {
   const { default: proj4 } = await import('proj4');
   const { default: gcoord } = await import('gcoord');
-  const { GCJ02, gcj02, utm, webMercator } = await import('../dist/index.js');
+  const { GCJ02, bd09, gcj02, utm, webMercator } = await import('../dist/index.js');
   const { lineString } = await import('../dist/geojson.js');
   const { loadWasm } = await import('../dist/wasm.js');
-  const { runCases, runComposedCases, runGcjCases, runMercatorCases } = await import('./cases.mts');
+  const { runBdCases, runCases, runComposedCases, runGcjCases, runMercatorCases } = await import('./cases.mts');
   const ctx = await loadWasm();
   const runtime = typeof Bun === 'undefined' ? `Node ${process.version}` : `Bun ${Bun.version}`;
   const backends = { js: utm, [ctx.backend]: ctx.utm };
@@ -33,6 +38,7 @@ async function inProcess() {
     runtime,
     rows: runCases(proj4, backends, lineString, { n, runs }),
     gcjRows: runGcjCases(gcoord, { js: gcj02, [ctx.backend]: ctx.gcj02 }, { n, runs }),
+    bdRows: runBdCases(gcoord, { js: bd09, [ctx.backend]: ctx.bd09 }, { n, runs }),
     composedRows: runComposedCases(
       proj4,
       gcoord,
@@ -76,19 +82,20 @@ async function inBrowser() {
   await page.goto('http://bench.local/');
   await page.addScriptTag({ url: '/proj4.js' });
   await page.addScriptTag({ url: '/gcoord.js' });
-  const { rows, gcjRows, composedRows, mercRows } = await page.evaluate(
+  const { rows, gcjRows, bdRows, composedRows, mercRows } = await page.evaluate(
     async (opts) => {
       // Variables keep tsc from resolving browser-only URLs (Chromium cannot parse TS casts).
       const dist = '/dist/';
       const cases = '/cases.mjs';
-      const { GCJ02, gcj02, utm, webMercator } = await import(dist + 'index.js');
+      const { GCJ02, bd09, gcj02, utm, webMercator } = await import(dist + 'index.js');
       const { lineString } = await import(dist + 'geojson.js');
       const { loadWasm } = await import(dist + 'wasm.js');
-      const { runCases, runComposedCases, runGcjCases, runMercatorCases } = await import(cases);
+      const { runBdCases, runCases, runComposedCases, runGcjCases, runMercatorCases } = await import(cases);
       const ctx = await loadWasm();
       return {
         rows: runCases(window.proj4, { js: utm, [ctx.backend]: ctx.utm }, lineString, opts),
         gcjRows: runGcjCases(window.gcoord, { js: gcj02, [ctx.backend]: ctx.gcj02 }, opts),
+        bdRows: runBdCases(window.gcoord, { js: bd09, [ctx.backend]: ctx.bd09 }, opts),
         composedRows: runComposedCases(
           window.proj4,
           window.gcoord,
@@ -102,16 +109,17 @@ async function inBrowser() {
   );
   const runtime = `Chromium ${browser.version()}`;
   await browser.close();
-  return { runtime, rows, gcjRows, composedRows, mercRows };
+  return { runtime, rows, gcjRows, bdRows, composedRows, mercRows };
 }
 
-const { runtime, rows, gcjRows, composedRows, mercRows } = args.includes('--browser')
+const { runtime, rows, gcjRows, bdRows, composedRows, mercRows } = args.includes('--browser')
   ? await inBrowser()
   : await inProcess();
 console.log(`${n} points, median of ${runs} (5 calls each) (${runtime})`);
 for (const [baseline, table] of [
   ['proj4', rows],
   ['gcoord', gcjRows],
+  ['gcoord', bdRows],
   ['proj4 + gcoord', composedRows],
   ['proj4', mercRows],
 ]) {

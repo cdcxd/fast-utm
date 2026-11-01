@@ -78,9 +78,9 @@ export function gcj02(options: Gcj02Options = {}): Geographic {
   return buildGcj02(gcj02Mode(options));
 }
 
-/** Validates the options, reading each once. */
-export function gcj02Mode(options: Gcj02Options = {}): 'passthrough' | 'transform' {
-  checkOptions(options, 'gcj02', ['outsideChina']);
+/** Validates the options, reading each once; `fn` names the factory in errors. */
+export function gcj02Mode(options: Gcj02Options = {}, fn = 'gcj02'): 'passthrough' | 'transform' {
+  checkOptions(options, fn, ['outsideChina']);
   const { outsideChina = 'passthrough' } = options;
   if (typeof outsideChina !== 'string') {
     throw new TypeError(`fast-proj: outsideChina must be a string, got ${typeof outsideChina}`);

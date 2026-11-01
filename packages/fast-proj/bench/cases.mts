@@ -1,4 +1,4 @@
-import type { Geographic, Projection, UtmOptions } from '../dist/index.js';
+import type { Bd09, Geographic, Projection, UtmOptions } from '../dist/index.js';
 import type { LineString } from '../dist/geojson.js';
 
 /** One row per direction/method: baseline median plus one column per backend. */
@@ -145,6 +145,65 @@ export function runGcjCases(
   });
   for (const [name, gcj02] of Object.entries(backends)) {
     cases(gcj02())
+      .flat()
+      .forEach(([, fn], i) => {
+        rows[i]!.ms[name] = time(fn, runs, reps);
+      });
+  }
+  return rows;
+}
+
+// BD-09 as runGcjCases, plus GCJ-02 <-> BD-09. `backends` maps a column name to a `bd09` factory.
+export function runBdCases(
+  gcoord: {
+    readonly WGS84: unknown;
+    readonly GCJ02: unknown;
+    readonly BD09: unknown;
+    transform(...args: unknown[]): unknown;
+  },
+  backends: Record<string, () => Bd09>,
+  { n = 10000, runs = 31, reps = 5 }: BenchOptions = {},
+): BenchRow[] {
+  const lon = new Float64Array(n);
+  const lat = new Float64Array(n);
+  const ll = new Float64Array(2 * n);
+  for (let i = 0; i < n; i++) {
+    lon[i] = ll[2 * i] = 100 + ((i * 7919) % n) * (20 / n);
+    lat[i] = ll[2 * i + 1] = 22 + ((i * 104729) % n) * (18 / n);
+  }
+  const a = new Float64Array(n);
+  const b = new Float64Array(n);
+  const out = new Float64Array(2 * n);
+  const directions: [string, unknown, unknown, 'fromWgs84' | 'toWgs84' | 'fromGcj02' | 'toGcj02'][] = [
+    ['WGS84 → BD-09', gcoord.WGS84, gcoord.BD09, 'fromWgs84'],
+    ['BD-09 → WGS84', gcoord.BD09, gcoord.WGS84, 'toWgs84'],
+    ['GCJ-02 → BD-09', gcoord.GCJ02, gcoord.BD09, 'fromGcj02'],
+    ['BD-09 → GCJ-02', gcoord.BD09, gcoord.GCJ02, 'toGcj02'],
+  ];
+  const cases = (g: Bd09 | null): [string, () => void][][] =>
+    directions.map(([, , , m]) => [
+      [
+        `${m}Point`,
+        () => {
+          const f = g![`${m}Point`];
+          for (let i = 0; i < n; i++) f(lon[i]!, lat[i]!);
+        },
+      ],
+      [`${m} (output buffers)`, () => g![m](lon, lat, a, b)],
+      [`${m}Interleaved (output buffer)`, () => g![`${m}Interleaved`](ll, out)],
+    ]);
+  const rows: BenchRow[] = directions.flatMap(([direction, from, to], d) => {
+    const base = time(
+      () => {
+        for (let i = 0; i < n; i++) gcoord.transform([lon[i], lat[i]], from, to);
+      },
+      runs,
+      reps,
+    );
+    return cases(null)[d]!.map(([method]) => ({ direction, method, base, ms: {} }));
+  });
+  for (const [name, bd09] of Object.entries(backends)) {
+    cases(bd09())
       .flat()
       .forEach(([, fn], i) => {
         rows[i]!.ms[name] = time(fn, runs, reps);

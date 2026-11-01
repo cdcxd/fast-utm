@@ -21,7 +21,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const src = join(dirname(fileURLToPath(import.meta.url)), '../src');
-const FILES = ['tmerc.ts', 'gcj02.ts', 'gcj02-fused.ts', 'webmerc.ts'];
+const FILES = ['tmerc.ts', 'gcj02.ts', 'gcj02-fused.ts', 'webmerc.ts', 'bd09.ts'];
 
 type Kernel = { params: string[]; body: string[]; consts: Map<string, string>; mutable: Set<string> };
 
@@ -92,11 +92,13 @@ function kernels(lines: string[]): Map<string, Kernel> {
   const mutable = mutableNames(lines);
   for (let i = 0; i < lines.length; i++) {
     if (lines[i]!.trim() !== '// @kernel') continue;
-    const m = /^(\s*)function (\w+)\(([^)]*)\)(?:: \w+)? \{$/.exec(lines[i + 1]!);
+    // A lint directive may sit between the marker and the header: a kernel only ever copied in is never called.
+    const h = /^\s*\/\/ oxlint-disable-next-line /.test(lines[i + 1]!) ? i + 2 : i + 1;
+    const m = /^(\s*)function (\w+)\(([^)]*)\)(?:: \w+)? \{$/.exec(lines[h]!);
     if (!m) throw new Error(`@kernel at line ${i + 1} is not followed by a one-line function header`);
-    const end = lines.indexOf(`${m[1]}}`, i + 2);
+    const end = lines.indexOf(`${m[1]}}`, h + 1);
     const params = m[3]!.split(',').map((p) => p.split(':')[0]!.trim());
-    found.set(m[2]!, { params, body: lines.slice(i + 2, end), consts, mutable });
+    found.set(m[2]!, { params, body: lines.slice(h + 1, end), consts, mutable });
   }
   return found;
 }
@@ -188,8 +190,8 @@ function dedent(body: string[]): string[] {
 
 function expand(k: Kernel, name: string, args: string[], opts: [string, string][]): string[] {
   if (args.length !== k.params.length) throw new Error(`@inline ${name}: ${args.length} args for ${k.params.length}`);
-  // Copies drop whole-line comments: the kernel is the commented reference.
-  const body = dedent(k.body.filter((l) => !/^\s*\/\//.test(l)));
+  // Copies drop whole-line comments, the kernel being the commented reference, but keep lint directives.
+  const body = dedent(k.body.filter((l) => !/^\s*\/\/(?! oxlint-disable-next-line )/.test(l)));
   const text = body.join('\n');
   const declared = declaredIn(text);
   const open = opts.some(([key, v]) => key === 'scope' && v === 'open');

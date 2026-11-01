@@ -2,11 +2,12 @@
  * The converters of a loadWasm() context: wasm-backed ones over a fixed 64 Ki-point workspace, or the JavaScript ones
  * guarded against use after dispose(). wasm.ts loads the module and picks one.
  */
+import { composeBd09 } from './bd09.js';
 import { checkEven, checkSame, output } from './checks.js';
 import { buildGcj02, gcj02Mode } from './gcj02.js';
 import { type FusedInverse, fusers, tmInverses, withGeographic } from './geographic.js';
 import { parseTmerc, tmerc as jsTmerc } from './tmerc.js';
-import type { Geographic, Impl, Projection, TransverseMercator } from './types.js';
+import type { Bd09, Geographic, Impl, Projection, TransverseMercator } from './types.js';
 import { parseUtm, utm as jsUtm } from './utm.js';
 import { parseWebMercator, webMercator as jsWebMercator } from './webmerc.js';
 import type { WasmContext } from './wasm.js';
@@ -65,6 +66,7 @@ export function jsContext(): WasmContext {
   };
   // One converter per mode, as for the root gcj02().
   const gcj: Partial<Record<'passthrough' | 'transform', Geographic>> = {};
+  const bd: Partial<Record<'passthrough' | 'transform', Bd09>> = {};
   const ctx: WasmContext = {
     backend: 'js',
     tmerc: (o) => (open(), live(jsTmerc(o))),
@@ -74,6 +76,11 @@ export function jsContext(): WasmContext {
       open();
       const mode = gcj02Mode(o);
       return (gcj[mode] ??= live(buildGcj02(mode)));
+    },
+    bd09: (o) => {
+      open();
+      const mode = gcj02Mode(o, 'bd09');
+      return (bd[mode] ??= live(composeBd09(ctx.gcj02({ outsideChina: mode }))));
     },
     dispose() {
       disposed = true;
@@ -266,6 +273,7 @@ export function wasmContext(exports: Exports): WasmContext {
 
   // One converter per mode, as for the root gcj02().
   const gcj: Partial<Record<'passthrough' | 'transform', Geographic>> = {};
+  const bd: Partial<Record<'passthrough' | 'transform', Bd09>> = {};
   let wasmGcj: Geographic | undefined;
   const dispose = () => {
     if (busy) throw new Error('fast-proj: dispose() during an active call');
@@ -276,7 +284,7 @@ export function wasmContext(exports: Exports): WasmContext {
     if (!e) throw new Error('fast-proj: context used after dispose()');
     return e;
   };
-  return {
+  const ctx: WasmContext = {
     backend: 'wasm',
     tmerc: (o) => {
       open();
@@ -303,9 +311,16 @@ export function wasmContext(exports: Exports): WasmContext {
       return (gcj[mode] ??=
         mode === 'transform' || !ex.gcj_forward_batch || !ex.gcj_inverse_batch ? guarded(js, () => !e) : buildGcj(js));
     },
+    // The offset runs in JavaScript over this context's GCJ-02, so WGS84 <-> BD-09 batches run its wasm kernel.
+    bd09: (o) => {
+      open();
+      const mode = gcj02Mode(o, 'bd09');
+      return (bd[mode] ??= guarded(composeBd09(ctx.gcj02({ outsideChina: mode })), () => !e));
+    },
     dispose,
     [DISPOSE]: dispose,
   };
+  return ctx;
 }
 
 function copyIn(dst: Float64Array, src: ArrayLike<number>, i0: number, n: number): void {
