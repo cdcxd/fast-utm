@@ -5,14 +5,199 @@ use crate::math::*;
 use core::arch::wasm32::{
     f32x4_demote_f64x2_zero, f64x2, f64x2_abs, f64x2_add, f64x2_div, f64x2_eq, f64x2_ge,
     f64x2_gt, f64x2_le, f64x2_lt, f64x2_mul, f64x2_neg, f64x2_ne, f64x2_nearest, f64x2_pmax,
-    f64x2_pmin, f64x2_splat, f64x2_sub, i32x4_trunc_sat_f32x4,
+    f64x2_pmin, f64x2_splat, f64x2_sqrt, f64x2_sub, i32x4_trunc_sat_f32x4,
     i64x2_add, i64x2_extend_low_i32x4, i64x2_lt, i64x2_shl, i64x2_splat, i64x2_sub,
-    u64x2_shr, v128, v128_and, v128_any_true, v128_bitselect, v128_not, v128_or, v128_xor,
+    u64x2_shr, v128, v128_and, v128_andnot, v128_any_true, v128_bitselect, v128_not, v128_or, v128_xor,
 };
 
 #[inline]
 fn spl(x: f64) -> v128 {
     f64x2_splat(x)
+}
+
+/// Lane-wise f64x2 operations on one pair (`v128`) or two (`[v128; 2]`). A kernel written over `Vx` runs two
+/// independent pairs interleaved, op by op, so their dependency chains overlap: V8 emits wasm in order, and a
+/// latency-bound kernel's next pair is otherwise too far ahead for the out-of-order window.
+pub trait Vx: Copy {
+    fn splat(x: f64) -> Self;
+    fn add(self, o: Self) -> Self;
+    fn sub(self, o: Self) -> Self;
+    fn mul(self, o: Self) -> Self;
+    fn div(self, o: Self) -> Self;
+    fn sqrt(self) -> Self;
+    fn abs(self) -> Self;
+    fn neg(self) -> Self;
+    fn gt(self, o: Self) -> Self;
+    fn lt(self, o: Self) -> Self;
+    fn le(self, o: Self) -> Self;
+    fn and(self, o: Self) -> Self;
+    fn or(self, o: Self) -> Self;
+    fn andnot(self, o: Self) -> Self;
+    fn xor(self, o: Self) -> Self;
+    fn not(self) -> Self;
+    /// All-ones lanes where the sign bit is set (-0 included).
+    fn sign(self) -> Self;
+    /// `a` where `m` is set, else `b` (`v128_bitselect`).
+    fn select(a: Self, b: Self, m: Self) -> Self;
+    fn any(self) -> bool;
+}
+
+impl Vx for v128 {
+    #[inline(always)]
+    fn splat(x: f64) -> Self {
+        f64x2_splat(x)
+    }
+    #[inline(always)]
+    fn add(self, o: Self) -> Self {
+        f64x2_add(self, o)
+    }
+    #[inline(always)]
+    fn sub(self, o: Self) -> Self {
+        f64x2_sub(self, o)
+    }
+    #[inline(always)]
+    fn mul(self, o: Self) -> Self {
+        f64x2_mul(self, o)
+    }
+    #[inline(always)]
+    fn div(self, o: Self) -> Self {
+        f64x2_div(self, o)
+    }
+    #[inline(always)]
+    fn sqrt(self) -> Self {
+        f64x2_sqrt(self)
+    }
+    #[inline(always)]
+    fn abs(self) -> Self {
+        f64x2_abs(self)
+    }
+    #[inline(always)]
+    fn neg(self) -> Self {
+        f64x2_neg(self)
+    }
+    #[inline(always)]
+    fn gt(self, o: Self) -> Self {
+        f64x2_gt(self, o)
+    }
+    #[inline(always)]
+    fn lt(self, o: Self) -> Self {
+        f64x2_lt(self, o)
+    }
+    #[inline(always)]
+    fn le(self, o: Self) -> Self {
+        f64x2_le(self, o)
+    }
+    #[inline(always)]
+    fn and(self, o: Self) -> Self {
+        v128_and(self, o)
+    }
+    #[inline(always)]
+    fn or(self, o: Self) -> Self {
+        v128_or(self, o)
+    }
+    #[inline(always)]
+    fn andnot(self, o: Self) -> Self {
+        v128_andnot(self, o)
+    }
+    #[inline(always)]
+    fn xor(self, o: Self) -> Self {
+        v128_xor(self, o)
+    }
+    #[inline(always)]
+    fn not(self) -> Self {
+        v128_not(self)
+    }
+    #[inline(always)]
+    fn sign(self) -> Self {
+        i64x2_lt(self, i64x2_splat(0))
+    }
+    #[inline(always)]
+    fn select(a: Self, b: Self, m: Self) -> Self {
+        v128_bitselect(a, b, m)
+    }
+    #[inline(always)]
+    fn any(self) -> bool {
+        v128_any_true(self)
+    }
+}
+
+impl Vx for [v128; 2] {
+    #[inline(always)]
+    fn splat(x: f64) -> Self {
+        [f64x2_splat(x); 2]
+    }
+    #[inline(always)]
+    fn add(self, o: Self) -> Self {
+        [self[0].add(o[0]), self[1].add(o[1])]
+    }
+    #[inline(always)]
+    fn sub(self, o: Self) -> Self {
+        [self[0].sub(o[0]), self[1].sub(o[1])]
+    }
+    #[inline(always)]
+    fn mul(self, o: Self) -> Self {
+        [self[0].mul(o[0]), self[1].mul(o[1])]
+    }
+    #[inline(always)]
+    fn div(self, o: Self) -> Self {
+        [self[0].div(o[0]), self[1].div(o[1])]
+    }
+    #[inline(always)]
+    fn sqrt(self) -> Self {
+        [self[0].sqrt(), self[1].sqrt()]
+    }
+    #[inline(always)]
+    fn abs(self) -> Self {
+        [self[0].abs(), self[1].abs()]
+    }
+    #[inline(always)]
+    fn neg(self) -> Self {
+        [self[0].neg(), self[1].neg()]
+    }
+    #[inline(always)]
+    fn gt(self, o: Self) -> Self {
+        [self[0].gt(o[0]), self[1].gt(o[1])]
+    }
+    #[inline(always)]
+    fn lt(self, o: Self) -> Self {
+        [self[0].lt(o[0]), self[1].lt(o[1])]
+    }
+    #[inline(always)]
+    fn le(self, o: Self) -> Self {
+        [self[0].le(o[0]), self[1].le(o[1])]
+    }
+    #[inline(always)]
+    fn and(self, o: Self) -> Self {
+        [self[0].and(o[0]), self[1].and(o[1])]
+    }
+    #[inline(always)]
+    fn or(self, o: Self) -> Self {
+        [self[0].or(o[0]), self[1].or(o[1])]
+    }
+    #[inline(always)]
+    fn andnot(self, o: Self) -> Self {
+        [self[0].andnot(o[0]), self[1].andnot(o[1])]
+    }
+    #[inline(always)]
+    fn xor(self, o: Self) -> Self {
+        [self[0].xor(o[0]), self[1].xor(o[1])]
+    }
+    #[inline(always)]
+    fn not(self) -> Self {
+        [self[0].not(), self[1].not()]
+    }
+    #[inline(always)]
+    fn sign(self) -> Self {
+        [self[0].sign(), self[1].sign()]
+    }
+    #[inline(always)]
+    fn select(a: Self, b: Self, m: Self) -> Self {
+        [v128_bitselect(a[0], b[0], m[0]), v128_bitselect(a[1], b[1], m[1])]
+    }
+    #[inline(always)]
+    fn any(self) -> bool {
+        v128_any_true(v128_or(self[0], self[1]))
+    }
 }
 
 #[inline]
@@ -27,19 +212,19 @@ pub fn poly(t: v128, c: &[f64]) -> v128 {
 /// `poly` as two interleaved Horner chains in t^2 (even and odd coefficients): half the dependency depth, two more
 /// live values; rounded differently, within an ulp.
 #[inline(always)]
-pub fn poly_eo(t: v128, c: &[f64]) -> v128 {
-    let t2 = f64x2_mul(t, t);
-    let mut e = spl(0.0);
-    let mut o = spl(0.0);
+pub fn poly_eo<T: Vx>(t: T, c: &[f64]) -> T {
+    let t2 = t.mul(t);
+    let mut e = T::splat(0.0);
+    let mut o = T::splat(0.0);
     let mut k = c.len().div_ceil(2);
     while k > 0 {
         k -= 1;
-        e = f64x2_add(f64x2_mul(e, t2), spl(c[2 * k]));
+        e = e.mul(t2).add(T::splat(c[2 * k]));
         if 2 * k + 1 < c.len() {
-            o = f64x2_add(f64x2_mul(o, t2), spl(c[2 * k + 1]));
+            o = o.mul(t2).add(T::splat(c[2 * k + 1]));
         }
     }
-    f64x2_add(e, f64x2_mul(o, t))
+    e.add(o.mul(t))
 }
 
 /// `poly`, or with `EO` `poly_eo`.
@@ -92,20 +277,20 @@ pub fn vatan(x: v128) -> v128 {
 /// atan(n / d) for d > 0 and finite n, with one division (the quotient and the pi/8 reduction share it) and
 /// `poly_eo`.
 #[inline]
-pub fn vatan_q(n: v128, d: v128) -> v128 {
-    let a = f64x2_abs(n);
-    let gt1 = f64x2_gt(a, d);
-    let num = v128_bitselect(d, a, gt1);
-    let den = v128_bitselect(a, d, gt1);
-    let big = f64x2_gt(num, f64x2_mul(den, spl(TAN_PI_8)));
-    let nn = v128_bitselect(f64x2_sub(num, f64x2_mul(den, spl(TAN_PI_8))), num, big);
-    let dd = v128_bitselect(f64x2_add(den, f64x2_mul(num, spl(TAN_PI_8))), den, big);
-    let u = f64x2_div(nn, dd);
-    let t2 = f64x2_mul(u, u);
-    let pr = f64x2_add(u, f64x2_mul(t2, f64x2_mul(u, poly_eo(t2, &AT))));
-    let r = f64x2_add(pr, v128_bitselect(spl(PI_8), spl(0.0), big));
-    let comp = v128_bitselect(f64x2_sub(spl(PI_2), r), r, gt1);
-    v128_bitselect(f64x2_neg(comp), comp, i64x2_lt(n, i64x2_splat(0)))
+pub fn vatan_q<T: Vx>(n: T, d: T) -> T {
+    let a = n.abs();
+    let gt1 = a.gt(d);
+    let num = T::select(d, a, gt1);
+    let den = T::select(a, d, gt1);
+    let big = num.gt(den.mul(T::splat(TAN_PI_8)));
+    let nn = T::select(num.sub(den.mul(T::splat(TAN_PI_8))), num, big);
+    let dd = T::select(den.add(num.mul(T::splat(TAN_PI_8))), den, big);
+    let u = nn.div(dd);
+    let t2 = u.mul(u);
+    let pr = u.add(t2.mul(u.mul(poly_eo(t2, &AT))));
+    let r = pr.add(T::select(T::splat(PI_8), T::splat(0.0), big));
+    let comp = T::select(T::splat(PI_2).sub(r), r, gt1);
+    T::select(comp.neg(), comp, n.sign())
 }
 
 /// atan2(y, x) — magnitude path plus exact-zero and quadrant handling.
@@ -320,13 +505,20 @@ pub fn vsincos_h(x: v128) -> (v128, v128) {
     if v128_any_true(v128_not(f64x2_le(a, spl(3.0 * PI_4)))) {
         return vsincos_eo(x);
     }
-    let big = f64x2_gt(a, spl(PI_4));
-    let r = v128_bitselect(f64x2_add(f64x2_sub(spl(PIO2_1), a), spl(PIO2_1T)), a, big);
-    let t = f64x2_mul(r, r);
-    let sp = f64x2_add(r, f64x2_mul(t, f64x2_mul(r, poly_eo(t, &S))));
-    let cp = f64x2_add(spl(1.0), f64x2_mul(t, poly_eo(t, &C)));
-    let sa = v128_bitselect(cp, sp, big);
-    let ca = v128_bitselect(sp, cp, big);
+    sincos_fold(x)
+}
+
+/// `vsincos_h` for lanes known to be within |x| <= 3 pi / 4.
+#[inline(always)]
+pub fn sincos_fold<T: Vx>(x: T) -> (T, T) {
+    let a = x.abs();
+    let big = a.gt(T::splat(PI_4));
+    let r = T::select(T::splat(PIO2_1).sub(a).add(T::splat(PIO2_1T)), a, big);
+    let t = r.mul(r);
+    let sp = r.add(t.mul(r.mul(poly_eo(t, &S))));
+    let cp = T::splat(1.0).add(t.mul(poly_eo(t, &C)));
+    let sa = T::select(cp, sp, big);
+    let ca = T::select(sp, cp, big);
     // sin is odd (and keeps -0); cos is even
-    (v128_xor(sa, v128_and(x, i64x2_splat(i64::MIN))), ca)
+    (sa.xor(x.and(T::splat(-0.0))), ca)
 }
