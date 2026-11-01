@@ -1,6 +1,6 @@
 {
   "name": "fast-proj",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Fast batch coordinate conversions (UTM, transverse Mercator, Web Mercator, GCJ-02) with typed-array APIs and an optional WebAssembly backend",
   "keywords": [
     "coordinates",
