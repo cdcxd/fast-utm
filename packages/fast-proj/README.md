@@ -1,12 +1,14 @@
 # fast-proj
 
 Fast batch coordinate conversions for JavaScript and TypeScript: UTM, transverse Mercator and Web Mercator ↔ WGS84,
-and WGS84 ↔ GCJ-02 for maps of China, with typed-array APIs and an optional WebAssembly backend.
+and WGS84 ↔ GCJ-02 ↔ BD-09 for maps of China, with typed-array APIs and an optional WebAssembly backend.
 
 - Krüger series to 6th order (Karney 2011). Accuracy: ≤5e-9 m (6e-9 m near ±180°) / 1e-13° vs an exact reference;
   ≈6e-9 m / 1.3e-13° vs proj4.
 - GCJ-02: the published formula, 7–20× faster than gcoord (16–29× with WebAssembly); the inverse is accurate to 3e-12°
   (gcoord: 1e-6°).
+- BD-09 (Baidu), from WGS84 or directly from GCJ-02: 9–20× faster than gcoord through WGS84 (11–23× with
+  WebAssembly); both directions within an ulp of the formula (gcoord's inverse: 2e-6°).
 - Web Mercator (EPSG:3857): within five ulps of the correctly rounded exact value up to the poles; no clamping at ±85.05°.
 - No per-point allocations in the batch APIs; optional output buffers, in-place conversion.
 - No dependencies, ESM-only, tree-shakeable. Node ≥ 20 and modern browsers.
@@ -16,7 +18,7 @@ npm install fast-proj
 ```
 
 ```ts
-import { GCJ02, tmerc, utm, utmFor, webMercator } from 'fast-proj';
+import { BD09, GCJ02, tmerc, utm, utmFor, webMercator } from 'fast-proj';
 import { lineString } from 'fast-proj/geojson';
 
 const zone33 = utm({ zone: 33 }); // or utm(utmFor(lon, lat))
@@ -28,6 +30,7 @@ map.getSource('track').setData(lineString(xy)); // MapLibre
 const gk = tmerc({ centralMeridian: 117, falseEasting: 500000 }); // Gauss-Krüger, CM 117E
 utm({ zone: 50, geographic: GCJ02 }).toLonLatInterleaved(xy, xy); // UTM -> GCJ-02 for AMap/Tencent basemaps
 GCJ02.fromWgs84Interleaved(lonlat, lonlat); // WGS84 -> GCJ-02, in place
+BD09.fromGcj02Interleaved(lonlat, lonlat); // GCJ-02 -> BD-09 for Baidu (or BD09.fromWgs84Interleaved)
 webMercator().fromLonLatInterleaved(lonlat, lonlat); // lon/lat -> EPSG:3857 x/y (on GCJ-02 lon/lat: AMap tiles)
 
 import { loadWasm } from 'fast-proj/wasm'; // opt-in, ~78 kB
@@ -68,6 +71,21 @@ GCJ-02: points in eastern China, against gcoord 1.0.7's `transform`.
 | GCJ-02 → WGS84 | gcoord                   | 14.22 ms        | 14.01 ms        | 11.61 ms        |
 |                | `toWgs84`, JavaScript    | 0.96 ms (14.8×) | 1.10 ms (12.7×) | 0.89 ms (13.0×) |
 |                | `toWgs84`, WebAssembly   | 0.58 ms (24.5×) | 0.82 ms (17.1×) | 0.58 ms (20.0×) |
+
+BD-09: the same points, against gcoord 1.0.7's `transform`. GCJ-02 ↔ BD-09 runs in JavaScript in both backends.
+
+| Operation      | Implementation           | Node 24         | Bun 1.4         | Chromium 156    |
+| -------------- | ------------------------ | --------------- | --------------- | --------------- |
+| WGS84 → BD-09  | gcoord                   | 10.96 ms        | 9.42 ms         | 7.90 ms         |
+|                | `fromWgs84`, JavaScript  | 0.56 ms (19.6×) | 0.67 ms (14.1×) | 0.56 ms (14.1×) |
+|                | `fromWgs84`, WebAssembly | 0.48 ms (22.8×) | 0.58 ms (16.2×) | 0.48 ms (16.5×) |
+| BD-09 → WGS84  | gcoord                   | 14.95 ms        | 15.20 ms        | 13.31 ms        |
+|                | `toWgs84`, JavaScript    | 1.47 ms (10.2×) | 1.73 ms (8.8×)  | 1.45 ms (9.2×)  |
+|                | `toWgs84`, WebAssembly   | 1.13 ms (13.2×) | 1.45 ms (10.5×) | 1.12 ms (11.9×) |
+| GCJ-02 → BD-09 | gcoord                   | 8.59 ms         | 6.78 ms         | 4.91 ms         |
+|                | `fromGcj02`              | 0.23 ms (37.4×) | 0.31 ms (21.9×) | 0.22 ms (22.3×) |
+| BD-09 → GCJ-02 | gcoord                   | 8.54 ms         | 6.73 ms         | 4.89 ms         |
+|                | `toGcj02`                | 0.55 ms (15.5×) | 0.63 ms (10.7×) | 0.55 ms (8.8×)  |
 
 UTM ↔ GCJ-02: `utm({ zone: 50, geographic: GCJ02 })`, against proj4 then gcoord (or gcoord then proj4).
 

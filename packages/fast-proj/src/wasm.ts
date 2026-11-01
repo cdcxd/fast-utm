@@ -8,9 +8,10 @@
  */
 /// <reference lib="esnext.disposable" preserve="true" />
 import { checkOptions } from './checks.js';
+import type { Bd09Options } from './bd09.js';
 import type { Gcj02Options } from './gcj02.js';
 import type { TransverseMercatorOptions } from './tmerc.js';
-import type { Geographic, Projection, TransverseMercator, Utm } from './types.js';
+import type { Bd09, Geographic, Projection, TransverseMercator, Utm } from './types.js';
 import type { UtmOptions } from './utm.js';
 import type { WebMercatorOptions } from './webmerc.js';
 import { type Exports, jsContext, wasmContext } from './wasm-context.js';
@@ -50,6 +51,11 @@ export interface WasmContext extends Disposable {
    * wasm kernel in `'passthrough'` mode.
    */
   gcj02(options?: Gcj02Options): Geographic;
+  /**
+   * BD-09 over this context's {@link WasmContext.gcj02}: WGS84 <-> BD-09 batches run its GCJ-02 step as that does,
+   * and the BD-09 offset in JavaScript.
+   */
+  bd09(options?: Bd09Options): Bd09;
   /** Idempotent. Output arrays already returned stay valid. */
   dispose(): void;
 }

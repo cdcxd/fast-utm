@@ -12,9 +12,9 @@ Rust/WebAssembly SIMD backend for large batches.
 npm install fast-proj
 ```
 
-| package                           | contents                                                                         | docs                                                                                            |
-| --------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [`fast-proj`](packages/fast-proj) | UTM, transverse Mercator and Web Mercator ↔ WGS84, GCJ-02, GeoJSON helpers, wasm | [API](docs/api.md) · [from proj4](docs/proj4.md) · [changelog](packages/fast-proj/CHANGELOG.md) |
+| package                           | contents                                                                                | docs                                                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [`fast-proj`](packages/fast-proj) | UTM, transverse Mercator and Web Mercator ↔ WGS84, GCJ-02, BD-09, GeoJSON helpers, wasm | [API](docs/api.md) · [from proj4](docs/proj4.md) · [changelog](packages/fast-proj/CHANGELOG.md) |
 
 ## Performance
 
@@ -38,6 +38,17 @@ GCJ-02 against **gcoord 1.0.7**:
 |                | WebAssembly | **39.0×** | **29.1×** |    **28.2×** |
 | GCJ-02 → WGS84 | JavaScript  | **14.8×** | **12.7×** |    **13.0×** |
 |                | WebAssembly | **24.5×** | **17.1×** |    **20.0×** |
+
+BD-09 against **gcoord 1.0.7** (GCJ-02 ↔ BD-09 runs in JavaScript in both backends):
+
+| Operation      | Backend     |   Node 24 |   Bun 1.4 | Chromium 156 |
+| -------------- | ----------- | --------: | --------: | -----------: |
+| WGS84 → BD-09  | JavaScript  | **19.6×** | **14.1×** |    **14.1×** |
+|                | WebAssembly | **22.8×** | **16.2×** |    **16.5×** |
+| BD-09 → WGS84  | JavaScript  | **10.2×** |  **8.8×** |     **9.2×** |
+|                | WebAssembly | **13.2×** | **10.5×** |    **11.9×** |
+| GCJ-02 → BD-09 | JavaScript  | **37.4×** | **21.9×** |    **22.3×** |
+| BD-09 → GCJ-02 | JavaScript  | **15.5×** | **10.7×** |     **8.8×** |
 
 UTM zone 50 with `geographic: GCJ02` against proj4 + gcoord:
 

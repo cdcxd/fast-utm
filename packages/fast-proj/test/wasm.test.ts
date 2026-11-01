@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
 import { LAT_MAX, LAT_MIN, LON_MAX, LON_MIN } from '../src/gcj02-constants.js';
 import { fusers } from '../src/geographic.js';
-import { GCJ02, gcj02, tmerc as jsTmerc, utm, webMercator } from '../src/index.js';
+import { BD09, GCJ02, gcj02, tmerc as jsTmerc, utm, webMercator } from '../src/index.js';
 import type { Geographic, Projection } from '../src/types.js';
 import { loadWasm, type WasmContext } from '../src/wasm.js';
 
@@ -208,6 +208,23 @@ describe('loadWasm', () => {
     expect(() => m.toLonLat(x, y)).toThrow(/disposed/);
     expect(() => m.fromLonLatPoint(0, 0)).toThrow(/disposed/);
     expect(() => p.toLonLatInterleaved([x[0]!, y[0]!])).toThrow(/disposed/);
+  });
+
+  it('runs bd09 over its own gcj02 and throws once disposed', async () => {
+    const ctx = await loadWasm({ source: url });
+    const b = ctx.bd09();
+    expect(ctx.bd09()).toBe(b);
+    const lon = [116.391, 121.4737];
+    const lat = [39.907, 31.2304];
+    const g = ctx.gcj02().fromWgs84(lon, lat);
+    expect(b.fromWgs84(lon, lat)).toEqual(BD09.fromGcj02(g.lon, g.lat));
+    expect(b.fromGcj02(lon, lat)).toEqual(BD09.fromGcj02(lon, lat));
+    expect(() => ctx.bd09({ foo: 1 } as never)).toThrow(/bd09\(\)/);
+    ctx.dispose();
+    expect(() => ctx.bd09()).toThrow(/dispose/);
+    expect(() => b.fromGcj02(lon, lat)).toThrow(/disposed/);
+    expect(() => b.toGcj02Point(116, 40)).toThrow(/disposed/);
+    expect(() => b.toWgs84Interleaved([116, 40])).toThrow(/disposed/);
   });
 
   it('fuses a projection with its own wasm gcj02 into one wasm call', async () => {

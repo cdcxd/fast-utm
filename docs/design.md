@@ -148,7 +148,15 @@ export const GCJ02: Geographic; // gcj02(), the same object
 ```
 
 `webMercator` and `gcj02` come after 0.1; their names and shapes are fixed here so 0.1 doesn't need to change for them.
-BD-09, if added, is another `Geographic` relative to WGS84 (composing GCJ-02 internally).
+BD-09 (0.6) is another `Geographic` relative to WGS84, composing GCJ-02, plus the same six methods relative to GCJ-02
+(`Bd09 extends Geographic`): users with AMap data go to Baidu directly, without the round trip through WGS84 and its
+two GCJ-02 solves. Its offset is one closure shared by both modes and both backends; `composeBd09(gcj)` builds a
+converter over any GCJ-02, so a wasm context passes its own and WGS84 <-> BD-09 batches run the wasm GCJ-02 kernel
+with the offset as a second, JavaScript pass. The offset's sines of 3000 lat and 3000 lon degrees are reduced in
+degrees by whole quarter turns (exact) with shorter polynomials than poly.ts's, since the offset needs them only to
+1e-12: Math.sin and Math.cos of thousands of radians were three quarters of the forward's time. Kept: one rounding by
+1.5 2^52 instead of two Math.round, branch-free quadrant selection (random quadrants mispredict), together 41% on
+each direction.
 
 GCJ-02's reverse direction has no closed form; `toWgs84` iterates and documents its accuracy.
 

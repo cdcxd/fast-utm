@@ -113,6 +113,53 @@ export interface Geographic {
   fromWgs84Point(lon: number, lat: number): [lon: number, lat: number];
 }
 
+/**
+ * BD-09 (Baidu): a {@link Geographic} that also converts directly to and from GCJ-02, the system it is defined on.
+ * Same buffer rules as {@link Projection}.
+ */
+export interface Bd09 extends Geographic {
+  /** BD-09 longitude/latitude arrays -> GCJ-02 longitude/latitude arrays. */
+  toGcj02(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+  ): { lon: Float64Array<ArrayBuffer>; lat: Float64Array<ArrayBuffer> };
+  toGcj02<A extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon: A,
+  ): { lon: Output<A>; lat: Float64Array<ArrayBuffer> };
+  toGcj02<A extends Out, B extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon: A,
+    outLat: B,
+  ): { lon: Output<A>; lat: Output<B> };
+  /** GCJ-02 longitude/latitude arrays -> BD-09 longitude/latitude arrays. */
+  fromGcj02(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+  ): { lon: Float64Array<ArrayBuffer>; lat: Float64Array<ArrayBuffer> };
+  fromGcj02<A extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon: A,
+  ): { lon: Output<A>; lat: Float64Array<ArrayBuffer> };
+  fromGcj02<A extends Out, B extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon: A,
+    outLat: B,
+  ): { lon: Output<A>; lat: Output<B> };
+  /** Interleaved BD-09 [lon0, lat0, ...] -> interleaved GCJ-02. */
+  toGcj02Interleaved(lonlat: ArrayLike<number>): Float64Array<ArrayBuffer>;
+  toGcj02Interleaved<T extends Out>(lonlat: ArrayLike<number>, out: T): Output<T>;
+  /** Interleaved GCJ-02 [lon0, lat0, ...] -> interleaved BD-09. */
+  fromGcj02Interleaved(lonlat: ArrayLike<number>): Float64Array<ArrayBuffer>;
+  fromGcj02Interleaved<T extends Out>(lonlat: ArrayLike<number>, out: T): Output<T>;
+  toGcj02Point(lon: number, lat: number): [lon: number, lat: number];
+  fromGcj02Point(lon: number, lat: number): [lon: number, lat: number];
+}
+
 /** A transverse Mercator projection. */
 export interface TransverseMercator extends Projection {
   /** Degrees. */
@@ -164,6 +211,20 @@ interface BatchImpl {
   ): { lon: Output<A>; lat: Output<B> };
   toWgs84Interleaved<T extends Out>(lonlat: ArrayLike<number>, out?: T): Output<T>;
   fromWgs84Interleaved<T extends Out>(lonlat: ArrayLike<number>, out?: T): Output<T>;
+  toGcj02<A extends Out, B extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon?: A,
+    outLat?: B,
+  ): { lon: Output<A>; lat: Output<B> };
+  fromGcj02<A extends Out, B extends Out>(
+    lon: ArrayLike<number>,
+    lat: ArrayLike<number>,
+    outLon?: A,
+    outLat?: B,
+  ): { lon: Output<A>; lat: Output<B> };
+  toGcj02Interleaved<T extends Out>(lonlat: ArrayLike<number>, out?: T): Output<T>;
+  fromGcj02Interleaved<T extends Out>(lonlat: ArrayLike<number>, out?: T): Output<T>;
 }
 
 /** `P` as implementations write it, which is assignable to `P`. */
