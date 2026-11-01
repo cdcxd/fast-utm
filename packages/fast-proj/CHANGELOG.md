@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+### Patch Changes
+
+- 06f5254: Faster WebAssembly GCJ-02 and Web Mercator batches, steadier Bun transverse Mercator batches. JavaScript backend: the transverse Mercator batch loops read the projection's coefficients as locals, which removes a case where Bun ran them 7–10% slower (a converter timed on its own; the README benchmark already got the fast code), with Node and Chromium unchanged and output bit-identical. WebAssembly backend: GCJ-02 `fromWgs84` batches are 10% faster; the Web Mercator inverse takes the JavaScript kernel's formulas, 3% faster and within four ulps of the exact latitude instead of seven (worst 2.1e-14° instead of 2.8e-14°), with a slightly smaller `.wasm`.
+- 61f43f0: Faster WebAssembly batches in V8 (Node, Chromium, Deno): the GCJ-02 kernels and the transverse Mercator forward take two coordinate pairs at a time through the same code, so their dependency chains overlap. GCJ-02 `toWgs84` is 13% faster, GCJ-02 → UTM 11%, UTM `fromLonLat` 7% and GCJ-02 `fromWgs84` 6%; Bun is within 2%. The TM gain is within about 9° of the central meridian; farther out V8 is even, and Bun is up to 15% slower. Output is unchanged, bit for bit. The `.wasm` grows from 57 to 78 kB (18 to 24 kB gzipped). Both backends' Web Mercator inverse multiplies by 1/R instead of dividing, 2–3% faster; the worst error is unchanged (2.13e-14°), and individual latitudes move by up to 4 ulps.
+
 ## 0.5.1
 
 ### Patch Changes
