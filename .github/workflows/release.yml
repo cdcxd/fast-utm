@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.21.0
           registry-url: https://registry.npmjs.org
@@ -32,12 +32,12 @@ jobs:
         run: test "v$(node -p "require('./packages/fast-proj/package.json').version")" = "$GITHUB_REF_NAME"
       # Development tools require a newer Node; exercise the built package
       # on its advertised minimum before publishing, then restore the toolchain.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Check Node 20 package compatibility
         run: node packages/fast-proj/test/smoke.mjs
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.21.0
           registry-url: https://registry.npmjs.org
@@ -51,7 +51,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create GitHub release from CHANGELOG.md
         run: |
           awk -v v="## ${GITHUB_REF_NAME#v}" '$0 == v || index($0, v " ") == 1 {f = 1; next} /^## / {f = 0} f' \
